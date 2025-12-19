@@ -1,270 +1,48 @@
+# Rendu – Stack LAMP avec Docker Compose
 
+## Contexte
+Ce projet a été réalisé dans le cadre du cours **Expertise Cloud**.  
+L’objectif est de mettre en place une stack **LAMP** (Apache, MySQL, PHP) en utilisant **Docker Compose**.
 
-#############################################################################################################################################################################
-                                                                 CE README A ETE COPIE SUR LE GITHUB DE DAMIEN
-#############################################################################################################################################################################
+## Prérequis
+- Docker
+- Docker Compose
+- Machine Linux (VM Debian recommandée)
 
+## Arborescence du projet
 
-# 📚 Explication Détaillée du TP Stack LAMP avec Docker Compose
-
-## 🎯 Objectif du TP
-
-Ce TP vise à créer une **stack LAMP** complète en utilisant **Docker Compose**. Une stack LAMP est un ensemble de technologies permettant de créer des applications web dynamiques.
-
----
-
-## 🔤 Qu'est-ce qu'une Stack LAMP ?
-
-**LAMP** est l'acronyme de :
-- **L**inux : Système d'exploitation
-- **A**pache : Serveur web
-- **M**ySQL : Base de données
-- **P**HP : Langage de programmation côté serveur
-
-Ces 4 composants travaillent ensemble pour héberger et exécuter des sites web dynamiques.
-
----
-
-## 🐳 Pourquoi Docker et Docker Compose ?
-
-### Docker
-**Docker** permet de créer des **conteneurs** : des environnements isolés qui contiennent tout ce dont une application a besoin pour fonctionner (code, dépendances, configuration).
-
-**Avantages :**
-- ✅ Isolation : chaque service tourne dans son propre conteneur
-- ✅ Portabilité : fonctionne partout de la même manière
-- ✅ Rapidité : démarrage instantané vs machines virtuelles
-- ✅ Reproductibilité : même environnement sur tous les ordinateurs
-
-### Docker Compose
-**Docker Compose** permet de définir et gérer plusieurs conteneurs en même temps via un seul fichier de configuration (`docker-compose.yml`).
-
-**Avantages :**
-- ✅ Configuration centralisée
-- ✅ Gestion simplifiée de plusieurs services
-- ✅ Définition des dépendances entre services
-- ✅ Lancement/arrêt de toute la stack en une commande
-
----
-
-## 📂 Structure du Projet
-
-```
-TP-Docker-Compose/
-├── docker-compose.yml          # Orchestration de tous les services
+stack_lamp/
+├── docker-compose.yml
 ├── php/
-│   └── Dockerfile              # Instructions pour construire l'image PHP
+│ └── Dockerfile
 ├── apache/
-│   └── my-vhost.conf           # Configuration du serveur Apache
+│ └── my-vhost.conf
 └── src/
-    └── index.php               # Code PHP de test
-```
+└── index.php
 
-### Pourquoi cette structure ?
 
-- **docker-compose.yml** : Point central qui définit tous les services
-- **php/** : Contient le Dockerfile car PHP nécessite une image personnalisée (avec extensions MySQL)
-- **apache/** : Configuration personnalisée pour qu'Apache communique avec PHP-FPM
-- **src/** : Code source de votre application web
+## Description des services
 
----
+- **Apache**  
+  - Image officielle `httpd`
+  - Expose le port 8080
+  - Sert les fichiers du dossier `src`
 
-## 📄 Explication des Fichiers Créés
+- **PHP**  
+  - Image construite via un `Dockerfile`
+  - PHP-FPM avec extensions MySQL
+  - Partage le code avec Apache
 
-### 1. docker-compose.yml
+- **MySQL**  
+  - Image officielle `mysql`
+  - Base de données créée automatiquement au démarrage
 
-```yaml
-version: '3.8'  # Version de la syntaxe Docker Compose
+## Lancement du projet
 
-services:       # Liste des services (conteneurs)
-```
+1. Se placer à la racine du projet :
+```bash
+cd stack_lamp
 
-#### Service Apache
-```yaml
-apache:
-  image: httpd:2.4                    # Image officielle Apache version 2.4
-  container_name: apache_container    # Nom personnalisé du conteneur
-  ports:
-    - "8080:80"                       # Port hôte:Port conteneur
-                                      # Accès externe via 8080 → redirigé vers port 80 du conteneur
-  volumes:
-    - ./src:/var/www/html             # Montage du code source
-    - ./apache/my-vhost.conf:/usr/local/apache2/conf/httpd.conf  # Config personnalisée
-  depends_on:
-    - php                             # Attend que PHP démarre
-    - db                              # Attend que MySQL démarre
-  networks:
-    - lamp_network                    # Réseau partagé entre tous les services
-```
+docker-compose up -d
 
-**Explications :**
-- **image** : On utilise l'image officielle Apache (httpd) depuis Docker Hub
-- **ports** : `8080:80` signifie que le port 8080 de votre VM redirige vers le port 80 du conteneur Apache
-- **volumes** : Permet de partager des fichiers entre l'hôte et le conteneur (pratique pour modifier le code sans reconstruire l'image)
-- **depends_on** : Indique l'ordre de démarrage des conteneurs
-- **networks** : Tous les services sur le même réseau peuvent communiquer entre eux par leur nom
-
-#### Service MySQL (db)
-```yaml
-db:
-  image: mysql:8.0                    # Image officielle MySQL 8.0
-  container_name: mysql_container
-  environment:                        # Variables d'environnement pour configurer MySQL
-    MYSQL_ROOT_PASSWORD: rootpassword # Mot de passe du compte root
-    MYSQL_DATABASE: company           # Création automatique de la BDD "company"
-    MYSQL_USER: user                  # Création d'un utilisateur "user"
-    MYSQL_PASSWORD: password          # Mot de passe de cet utilisateur
-  volumes:
-    - mysql_data:/var/lib/mysql       # Persistance des données (volume nommé)
-  networks:
-    - lamp_network
-```
-
-**Explications :**
-- **environment** : Configuration de MySQL via variables d'environnement (pas besoin de se connecter pour la configuration initiale)
-- **MYSQL_DATABASE** : Crée automatiquement une base de données au démarrage
-- **volumes** : `mysql_data` est un **volume nommé** (géré par Docker) qui persiste les données même si le conteneur est supprimé
-
-#### Service PHP
-```yaml
-php:
-  build:
-    context: ./php                    # Dossier contenant le Dockerfile
-    dockerfile: Dockerfile            # Nom du Dockerfile
-  container_name: php_container
-  volumes:
-    - ./src:/var/www/html             # Même code source que Apache
-  depends_on:
-    - db                              # Attend MySQL
-  networks:
-    - lamp_network
-```
-
-**Explications :**
-- **build** : Contrairement aux autres services, on **construit** l'image PHP depuis un Dockerfile
-- **Pourquoi un Dockerfile ?** Car l'image PHP de base ne contient pas les extensions MySQL (mysqli, pdo_mysql) nécessaires
-
-#### Réseaux et Volumes
-```yaml
-networks:
-  lamp_network:                       # Réseau privé pour tous les conteneurs
-    driver: bridge                    # Type de réseau (bridge = réseau interne)
-
-volumes:
-  mysql_data:                         # Volume pour persister les données MySQL
-```
-
----
-
-### 2. php/Dockerfile
-
-```dockerfile
-FROM php:8.1-fpm                      # Image de base : PHP 8.1 avec PHP-FPM
-
-# Installation des extensions PHP pour MySQL
-RUN docker-php-ext-install mysqli pdo pdo_mysql
-
-# Installation d'outils supplémentaires
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    zip \
-    unzip
-
-WORKDIR /var/www/html                 # Répertoire de travail par défaut
-
-EXPOSE 9000                           # PHP-FPM écoute sur le port 9000
-
-CMD ["php-fpm"]                       # Commande lancée au démarrage du conteneur
-```
-
-**Explications :**
-
-#### PHP-FPM (FastCGI Process Manager)
-- PHP-FPM est un gestionnaire de processus PHP optimisé pour les serveurs web
-- Il écoute sur le port 9000 et attend des requêtes d'Apache
-- Apache fait office de **proxy** : il reçoit les requêtes HTTP et les transfère à PHP-FPM
-
-#### Extensions PHP
-- **mysqli** : Extension MySQL améliorée (orientée objet)
-- **pdo** : PHP Data Objects (couche d'abstraction pour bases de données)
-- **pdo_mysql** : Driver MySQL pour PDO
-
-Sans ces extensions, PHP ne pourrait pas se connecter à MySQL !
-
----
-
-### 3. apache/my-vhost.conf
-
-Ce fichier configure Apache pour :
-
-#### Charger les modules nécessaires
-```apache
-LoadModule proxy_module modules/mod_proxy.so
-LoadModule proxy_fcgi_module modules/mod_proxy_fcgi.so
-```
-Ces modules permettent à Apache de communiquer avec PHP-FPM via le protocole FastCGI.
-
-#### Définir le DocumentRoot
-```apache
-DocumentRoot "/var/www/html"
-<Directory "/var/www/html">
-    Options Indexes FollowSymLinks
-    AllowOverride All
-    Require all granted
-    DirectoryIndex index.php index.html
-</Directory>
-```
-- **DocumentRoot** : Racine du site web
-- **DirectoryIndex** : Fichier par défaut (index.php puis index.html)
-- **AllowOverride All** : Permet l'utilisation de fichiers .htaccess
-
-#### Configuration du proxy PHP
-```apache
-<FilesMatch \.php$>
-    SetHandler "proxy:fcgi://php_container:9000"
-</FilesMatch>
-```
-**C'est la clé du système !**
-- Quand Apache reçoit une requête pour un fichier `.php`, il ne l'exécute pas lui-même
-- Il transmet la requête au conteneur PHP-FPM (`php_container:9000`)
-- PHP-FPM exécute le code PHP et renvoie le résultat à Apache
-- Apache renvoie la réponse au client
-
-**Note importante** : `php_container` fonctionne car Docker Compose crée automatiquement un DNS interne qui résout les noms de services.
-
----
-
-### 4. src/index.php
-
-```php
-<?php
-echo "<h1>Test de la Stack Docker Compose</h1>";
-
-// Test PHP
-echo "<p>✅ PHP fonctionne (Version " . phpversion() . ")</p>";
-
-// Test Connexion MySQL
-$servername = "db";              // Nom du service dans docker-compose.yml
-$username = "user";              // Utilisateur créé via MYSQL_USER
-$password = "password";          // Mot de passe défini via MYSQL_PASSWORD
-$dbname = "company";             // Base de données créée via MYSQL_DATABASE
-
-// Création de la connexion
-$conn = new mysqli($servername, $username, $password, $dbname);
-
-// Vérification
-if ($conn->connect_error) {
-    die("<p style='color:red'>❌ Echec de la connexion MySQL : " . $conn->connect_error . "</p>");
-}
-
-echo "<p style='color:green'>✅ Succès ! PHP est connecté à MySQL.</p>";
-?>
-```
-
-**Points importants :**
-- `$servername = "db"` : On utilise le **nom du service** défini dans docker-compose.yml, pas une IP !
-- Docker Compose résout automatiquement `db` vers l'IP du conteneur MySQL
-- Les identifiants correspondent aux variables d'environnement du service MySQL
-
----
+http://localhost:8080
